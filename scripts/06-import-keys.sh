@@ -11,7 +11,7 @@ KEYS_DIR="keys/validator_keys"
 # ── 사전 점검 ───────────────────────────────────────────────────
 if ! ls "${KEYS_DIR}"/keystore-*.json >/dev/null 2>&1; then
   echo "✘ ${KEYS_DIR}/keystore-*.json 이 없습니다."
-  echo "  먼저 ./scripts/04-gen-keys.sh 0xYourWithdrawalAddress 로 키를 생성하세요."
+  echo "  먼저 ./scripts/04-gen-keys.sh 0x0dC0CA2fC216177041DbE01d8C1DeA9621eb8801 (본인 주소) 로 키를 생성하세요."
   exit 1
 fi
 
