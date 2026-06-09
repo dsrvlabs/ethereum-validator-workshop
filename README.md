@@ -82,7 +82,8 @@ curl -s -X POST localhost:8545 -H 'Content-Type: application/json' \
 
 ```bash
 # 3-1) 키 생성 (네트워크 차단). 기본 0x01, 복리형이면 --compounding(0x02)
-./scripts/04-gen-keys.sh 0xYourWithdrawalAddress
+#      ↓ 주소는 예시 — 반드시 본인 EOA(출금) 주소로 교체
+./scripts/04-gen-keys.sh 0x0dC0CA2fC216177041DbE01d8C1DeA9621eb8801
 
 # 3-2) Launchpad 에서 deposit_data-*.json 업로드 + 32 ETH 예치
 #      https://hoodi.launchpad.ethereum.org

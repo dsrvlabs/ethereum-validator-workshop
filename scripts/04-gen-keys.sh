@@ -7,8 +7,8 @@ cd "$(dirname "$0")/.."
 
 WITHDRAWAL="${1:-}"
 if [ -z "$WITHDRAWAL" ]; then
-  echo "사용법: ./scripts/04-gen-keys.sh 0xYourWithdrawalAddress [--compounding]"
-  echo "  기본 0x01(Execution) credential · --compounding 시 0x02"
+  echo "사용법: ./scripts/04-gen-keys.sh 0x0dC0CA2fC216177041DbE01d8C1DeA9621eb8801 [--compounding]"
+  echo "  ⚠ 위 주소는 예시 — 반드시 본인 EOA(출금) 주소로 교체 · 기본 0x01, --compounding 시 0x02"
   exit 1
 fi
 shift || true
