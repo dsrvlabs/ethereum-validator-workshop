@@ -49,7 +49,7 @@ chmod +x scripts/*.sh                  # 실행 권한 보장
 ./scripts/02-host-setup.sh
 
 # 4) 환경변수 — FEE_RECIPIENT(본인 EOA) 입력 필수
-cp .env.example .env && vi .env
+cp .env.example .env && nano .env
 ```
 
 > ⚠ **`02-host-setup.sh` 실행 직후 SSH를 재접속**하시기 바랍니다 (브라우저 SSH 창을 닫았다 다시 열기). `usermod -aG docker` 는 새 로그인 세션부터 적용되므로, 재접속 전에는 `docker` 명령이 권한 거부됩니다. (임시 적용은 `newgrp docker` 로도 가능합니다.)
