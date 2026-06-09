@@ -1,0 +1,12 @@
+# 절대 커밋하지 말 것 — 비밀/상태
+.env
+jwt/
+keys/
+validator_keys/
+data/
+
+# 산출물
+*.log
+
+# macOS
+.DS_Store

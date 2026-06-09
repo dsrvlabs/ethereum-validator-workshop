@@ -1,0 +1,143 @@
+# Ethereum Validator Workshop — Hoodi testnet
+# EL(Geth) + CL(Lighthouse Beacon) + VC + MEV-Boost + Monitoring
+#
+# 프로파일로 단계적으로 올린다:
+#   docker compose --profile core up -d geth beacon   # 1) 풀노드(동기화)
+#   docker compose --profile core up -d               # 2) + validator (키 import 후)
+#   docker compose --profile mev up -d                # 3) + mev-boost
+#   docker compose --profile monitoring up -d         # 4) + prometheus/grafana
+#
+# 모든 이미지 버전 · fee recipient 등은 .env 에서 관리한다 (.env.example 참고)
+
+services:
+  # ── Execution Layer ────────────────────────────────────────────
+  geth:
+    image: ethereum/client-go:${GETH_VERSION}
+    restart: unless-stopped
+    stop_grace_period: 3m          # Geth는 종료 시 DB flush 시간이 필요
+    profiles: [core]
+    command:
+      - --hoodi
+      - --datadir=/data
+      - --http
+      - --http.addr=0.0.0.0        # 컨테이너 내부 바인딩 (외부 노출은 ports가 결정)
+      - --http.api=eth,net,web3
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.vhosts=*
+      - --authrpc.jwtsecret=/jwt/jwt.hex
+      - --metrics
+      - --metrics.addr=0.0.0.0
+    volumes:
+      - ./data/geth:/data
+      - ./jwt:/jwt:ro
+    ports:
+      - "30303:30303/tcp"          # P2P (공개)
+      - "30303:30303/udp"
+      - "127.0.0.1:8545:8545"      # JSON-RPC (로컬만)
+    networks: [ethnet]
+
+  # ── Consensus Layer (Beacon Node) ──────────────────────────────
+  beacon:
+    image: sigp/lighthouse:${LIGHTHOUSE_VERSION}
+    restart: unless-stopped
+    profiles: [core]
+    depends_on: [geth]
+    command:
+      - lighthouse
+      - bn
+      - --network=hoodi
+      - --datadir=/data
+      - --execution-endpoint=http://geth:8551
+      - --execution-jwt=/jwt/jwt.hex
+      - --checkpoint-sync-url=${CHECKPOINT_URL}
+      # ── MEV-Boost: STEP MEV에서 아래 한 줄 주석 해제 후 beacon 재생성 ──
+      # - --builder=http://mev-boost:18550
+      - --http
+      - --http-address=0.0.0.0
+      - --metrics
+      - --metrics-address=0.0.0.0
+    volumes:
+      - ./data/beacon:/data
+      - ./jwt:/jwt:ro
+    ports:
+      - "9000:9000/tcp"            # P2P (공개)
+      - "9000:9000/udp"
+      - "127.0.0.1:5052:5052"      # Beacon REST API (로컬만)
+    networks: [ethnet]
+
+  # ── Validator Client ───────────────────────────────────────────
+  # 키 import 먼저:
+  #   docker compose --profile core run --rm validator lighthouse account validator import \
+  #     --network hoodi --datadir /data --directory /keys/validator_keys
+  validator:
+    image: sigp/lighthouse:${LIGHTHOUSE_VERSION}
+    restart: unless-stopped
+    profiles: [core]
+    depends_on: [beacon]
+    command:
+      - lighthouse
+      - vc
+      - --network=hoodi
+      - --datadir=/data
+      - --beacon-nodes=http://beacon:5052
+      - --suggested-fee-recipient=${FEE_RECIPIENT}
+      - --graffiti=${GRAFFITI}
+      # ── MEV-Boost: STEP MEV에서 아래 한 줄 주석 해제 후 validator 재생성 ──
+      # - --builder-proposals
+      - --enable-doppelganger-protection
+      - --metrics
+      - --metrics-address=0.0.0.0
+    volumes:
+      - ./data/validator:/data
+      - ./keys:/keys:ro
+    networks: [ethnet]
+
+  # ── MEV-Boost (선택) ───────────────────────────────────────────
+  # Hoodi relay 가용성은 가변 — .env 의 MEV_RELAYS 에 가용 relay 를 채운다.
+  mev-boost:
+    image: flashbots/mev-boost:${MEV_BOOST_VERSION}
+    restart: unless-stopped
+    profiles: [mev]
+    environment:
+      - RELAYS=${MEV_RELAYS}
+    command:
+      - -hoodi
+      - -addr=0.0.0.0:18550
+      - -relay-check
+    ports:
+      - "127.0.0.1:18550:18550"    # builder status 확인용 (로컬만)
+    networks: [ethnet]
+
+  # ── Monitoring (선택) ──────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    profiles: [monitoring]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus      # named volume — nobody 권한 문제 회피
+    networks: [ethnet]
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    profiles: [monitoring]
+    depends_on: [prometheus]
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana    # named volume — uid 472 권한 문제 회피
+    ports:
+      # 실습(콘솔 SSH만 사용): 3000 공개 + 방화벽에서 본인 IP(/32)로 제한해 접속
+      # 운영: "127.0.0.1:3000:3000" 으로 바꾸고 SSH 터널 사용 권장
+      - "3000:3000"
+    networks: [ethnet]
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  ethnet:
+    name: ethnet
